@@ -78,8 +78,15 @@ body {
   min-height: 100vh;
 }
 
-button, input, textarea, select { font: inherit; color: inherit; }
+button, input, textarea, select { font: inherit; color: inherit; touch-action: manipulation; }
 button { cursor: pointer; background: none; border: 0; padding: 0; }
+
+/* iOS Safari 会对 font-size < 16px 的输入框在聚焦时自动放大整页 —— 16px 是硬门槛。
+   这里兜一道底，防止以后新增的输入控件再踩同一个坑。
+   注意：不要试图用 viewport 的 user-scalable=no / maximum-scale=1 解决，
+   iOS 10 起 Safari 主动忽略它们（可访问性考虑），Android 上却会真的禁掉双指缩放。 */
+input, textarea, select { font-size: 16px; }
+
 h1, h2, h3, p { margin: 0; }
 svg { width: 100%; height: 100%; display: block; }
 [hidden] { display: none !important; }
@@ -160,7 +167,7 @@ svg { width: 100%; height: 100%; display: block; }
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 15px;
+  font-size: 16px;   /* 不能低于 16px，否则 iOS 聚焦时会放大整页 */
 }
 .search-field input::-webkit-search-cancel-button { display: none; }
 .search-field input::placeholder { color: var(--text-3); }
@@ -652,7 +659,7 @@ svg { width: 100%; height: 100%; display: block; }
   border: 1px solid var(--glass-stroke);
   box-shadow: var(--glass-inner), 0 2px 6px -3px rgba(52, 44, 74, .18);
   outline: 0;
-  font-size: 15px;
+  font-size: 16px;   /* 同上：iOS 聚焦放大阈值 */
   transition: box-shadow .2s ease, background .2s ease, border-color .2s ease;
 }
 .input:focus {
@@ -890,7 +897,7 @@ textarea.input::placeholder, .input::placeholder { color: var(--text-3); }
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 15px;
+  font-size: 16px;   /* 同上：iOS 聚焦放大阈值 */
   min-width: 0;
   padding: 6px 0;
   text-align: right;

@@ -554,7 +554,8 @@
     }
 
     openSheet('#sheet-editor');
-    setTimeout(function () { $('#editor-text').focus(); }, 300);
+    // 不自动聚焦输入框：一进来就弹键盘会挡住内容，也可能只是来加张照片的。
+    // 让用户自己决定要不要打字。
   }
 
   function renderAuthorPicker() {
