@@ -89,6 +89,8 @@ input, textarea, select { font-size: 16px; }
 
 h1, h2, h3, p { margin: 0; }
 svg { width: 100%; height: 100%; display: block; }
+/* 媒体一律不许超出容器，否则窄屏上会把页面顶出横向滚动 */
+img, video { max-width: 100%; }
 [hidden] { display: none !important; }
 
 /* ---------------- 背景层（纯色 + 同色系微渐变，可在设置里换色） ----------------
@@ -635,6 +637,9 @@ svg { width: 100%; height: 100%; display: block; }
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* overflow-y 是 auto 时，overflow-x 的 visible 会被算成 auto —— 面板里只要有一个
+     超宽元素，整块就能左右拖动。这里显式裁掉横向，防止「日期控件把页面撑宽」这类问题。 */
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding: 18px 16px 24px;
 }
@@ -653,6 +658,10 @@ svg { width: 100%; height: 100%; display: block; }
 
 .input {
   width: 100%;
+  /* 日期控件在部分安卓内核（QQ / UC 用的 X5）里固有宽度很大，窄屏上会顶出容器，
+     把面板撑出横向滚动。min-width:0 去掉固有下限，max-width 再硬性封顶。 */
+  min-width: 0;
+  max-width: 100%;
   padding: 12px 15px;
   border-radius: var(--r-md);
   background: rgba(255, 255, 255, .66);
@@ -661,6 +670,13 @@ svg { width: 100%; height: 100%; display: block; }
   outline: 0;
   font-size: 16px;   /* 同上：iOS 聚焦放大阈值 */
   transition: box-shadow .2s ease, background .2s ease, border-color .2s ease;
+}
+/* 日期控件单独再兜一层：它是最容易带固有宽度的一种 */
+input[type="date"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 .input:focus {
   background: rgba(255, 255, 255, .86);

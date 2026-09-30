@@ -210,6 +210,7 @@
 
   function switchTab(name) {
     if (TABS.indexOf(name) < 0) return;
+    var changed = (state.tab !== name);
     state.tab = name;
 
     TABS.forEach(function (t) {
@@ -225,6 +226,10 @@
 
     window.scrollTo(0, 0);
     syncToTop(true);
+
+    // 点的就是当前这一页：只当「回到顶部」用，不要再重渲染 ——
+    // 相册/设置整块重建会让缩略图先清空再异步填回来，看起来就是闪一下。
+    if (!changed) return;
 
     if (name === 'album') renderAlbum();
     if (name === 'settings') renderSettings();
@@ -285,20 +290,40 @@
     members.forEach(function (m) { html += btn(m.key, m.name, counts[m.key] || 0); });
 
     $('#segmented').innerHTML = html;
-    positionThumb();
+    positionThumb(true);   // 刚重建，直接落位，别让它从 0 宽度长出来
   }
 
-  function positionThumb() {
+  // instant = true 时不做过渡，直接落位（刚重建出来的指示器要从正确位置直接出现，
+  // 否则会看到它从 0 宽度「长」出来）
+  function positionThumb(instant) {
     var seg = $('#segmented');
     if (!seg) return;
     var thumb = seg.querySelector('.seg-thumb');
     var btn = seg.querySelector('.seg-btn.active');
     if (!thumb || !btn) return;
+
     var segRect = seg.getBoundingClientRect();
     var btnRect = btn.getBoundingClientRect();
+
+    // 视图被 hidden 时 getBoundingClientRect 全是 0。此时若照样写进去，指示器会被压成
+    // 0 宽；等切回时间线再补正，就会看到「先缩成一条线再弹开」的闪烁。所以直接不写。
+    if (!segRect.width || !btnRect.width) return;
+
     var border = parseFloat(getComputedStyle(seg).borderLeftWidth) || 0;
-    thumb.style.width = btnRect.width + 'px';
-    thumb.style.transform = 'translateX(' + (btnRect.left - segRect.left - border) + 'px)';
+    var w = btnRect.width + 'px';
+    var x = 'translateX(' + (btnRect.left - segRect.left - border) + 'px)';
+
+    if (instant) {
+      thumb.style.transition = 'none';
+      thumb.style.width = w;
+      thumb.style.transform = x;
+      void thumb.offsetWidth;      // 强制重排，把上面的值定为起点
+      thumb.style.transition = '';
+      return;
+    }
+
+    thumb.style.width = w;
+    thumb.style.transform = x;
   }
 
   /* ---------------- 时间线 ---------------- */
@@ -380,7 +405,8 @@
 
     var cells = media.slice(0, 3).map(function (m, i) {
       var blob = thumbs.get(m.id);
-      var url = blob ? thumbUrl(m.id, blob) : '';
+      // 优先用已缓存的 URL，重渲染时直接出图，不闪
+      var url = thumbUrls.get(m.id) || (blob ? thumbUrl(m.id, blob) : '');
       var inner = url
         ? '<img src="' + url + '" alt="" loading="lazy" />'
         : '<div class="no-thumb">' + (m.kind === 'video' ? '视频' : '图片') + '</div>';
@@ -429,7 +455,15 @@
         '<span class="album-day-sub">' + escapeHtml(d.sub) + ' · ' + g.items.length + ' 项</span>' +
         '</div>' +
         '<div class="album">' + g.items.map(function (i) {
-          return '<div class="album-cell" data-media="' + i.m.id + '"><div class="no-thumb">…</div></div>';
+          // 已经缓存过 URL 的直接出图，不走「先占位、异步再替换」那条路 ——
+          // 否则每次重渲染都会先白一下再出图，看起来就是闪
+          var url = thumbUrls.get(i.m.id);
+          var badge = i.m.kind === 'video'
+            ? '<div class="play-badge"><span>' + PLAY_SVG + '</span></div>' : '';
+          return '<div class="album-cell" data-media="' + i.m.id + '">' +
+            (url ? '<img src="' + url + '" alt="" loading="lazy" />' + badge
+                 : '<div class="no-thumb">…</div>') +
+            '</div>';
         }).join('') + '</div></section>';
     }).join('');
 
@@ -440,6 +474,7 @@
       all.forEach(function (i) {
         var cell = box.querySelector('.album-cell[data-media="' + i.m.id + '"]');
         if (!cell) return;
+        if (cell.querySelector('img')) return;   // 上面已经直接出图了，别覆盖一遍
         var blob = thumbs.get(i.m.id);
         if (!blob) return;
         var url = thumbUrl(i.m.id, blob);
